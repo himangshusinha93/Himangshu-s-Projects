@@ -14,8 +14,8 @@ import {
   Users2
 } from 'lucide-react';
 
-import { Lead, User, UserRole } from './types';
-import { MOCK_LEADS, MOCK_USERS } from './constants';
+import { Lead, User, UserRole, Task, LeaveRequest, Quotation, Invoice, Expense } from './types';
+import { MOCK_LEADS, MOCK_USERS, MOCK_TASKS, MOCK_LEAVES, MOCK_QUOTES, MOCK_INVOICES, MOCK_EXPENSES } from './constants';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
 import Pipeline from './pages/Pipeline';
@@ -65,7 +65,6 @@ const Navbar = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
           <span className={`text-sm font-bold ${isActive('/pipeline') ? 'text-slate-900' : 'text-slate-400'}`}>Pipeline</span>
         </Link>
         
-        {/* New Shared Modules */}
         <Link to="/sales" className={`flex items-center space-x-4 p-3 rounded-2xl transition-all ${isActive('/sales') ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
           <div className="p-2 rounded-xl bg-[#228B22]/10 text-[#228B22]">
             <Briefcase size={18} />
@@ -79,7 +78,6 @@ const Navbar = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
           <span className={`text-sm font-bold ${isActive('/accounts') ? 'text-slate-900' : 'text-slate-400'}`}>Accounts</span>
         </Link>
 
-        {/* New Role-Based Module */}
         {(user.role === UserRole.ADMIN || user.role === UserRole.SALES_MANAGER) && (
           <Link to="/team" className={`flex items-center space-x-4 p-3 rounded-2xl transition-all ${isActive('/team') ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
             <div className="p-2 rounded-xl bg-[#332333]/10 text-[#332333]">
@@ -102,15 +100,6 @@ const Navbar = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
           </div>
           <span className={`text-sm font-bold ${isActive('/reports') ? 'text-slate-900' : 'text-slate-400'}`}>Analytics</span>
         </Link>
-
-        {user.role === UserRole.ADMIN && (
-          <Link to="/settings" className={`flex items-center space-x-4 p-3 rounded-2xl transition-all ${isActive('/settings') ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
-            <div className="p-2 rounded-xl bg-[#D32F2F]/10 text-[#D32F2F]">
-              <Settings size={18} />
-            </div>
-            <span className={`text-sm font-bold ${isActive('/settings') ? 'text-slate-900' : 'text-slate-400'}`}>Admin</span>
-          </Link>
-        )}
       </div>
 
       <div className="p-6 border-t border-slate-50 mt-auto">
@@ -128,26 +117,28 @@ const Navbar = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [initialized, setInitialized] = useState(false);
+  
+  // App State
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>(MOCK_LEAVES);
+  const [quotes, setQuotes] = useState<Quotation[]>(MOCK_QUOTES);
+  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
+  const [expenses, setExpenses] = useState<Expense[]>(MOCK_EXPENSES);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('crm_user');
     if (savedUser) setCurrentUser(JSON.parse(savedUser));
     
     const savedLeads = localStorage.getItem('crm_leads');
-    if (savedLeads) {
-      setLeads(JSON.parse(savedLeads));
-    } else {
-      setLeads(MOCK_LEADS);
-    }
+    setLeads(savedLeads ? JSON.parse(savedLeads) : MOCK_LEADS);
+    
     setInitialized(true);
   }, []);
 
   useEffect(() => {
-    if (initialized) {
-      localStorage.setItem('crm_leads', JSON.stringify(leads));
-    }
+    if (initialized) localStorage.setItem('crm_leads', JSON.stringify(leads));
   }, [leads, initialized]);
 
   const handleLogin = (user: User) => {
@@ -160,20 +151,16 @@ export default function App() {
     localStorage.removeItem('crm_user');
   };
 
-  const updateLead = (updatedLead: Lead) => {
-    setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
-  };
+  // State Updaters
+  const updateLead = (updatedLead: Lead) => setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+  const addLead = (newLead: Lead) => setLeads(prev => [newLead, ...prev]);
+  const addTask = (task: Task) => setTasks(prev => [task, ...prev]);
+  const addLeave = (leave: LeaveRequest) => setLeaves(prev => [leave, ...prev]);
+  const updateLeaveStatus = (id: string, status: 'Approved' | 'Rejected') => setLeaves(prev => prev.map(l => l.id === id ? { ...l, status } : l));
+  const addQuote = (quote: Quotation) => setQuotes(prev => [quote, ...prev]);
+  const addExpense = (expense: Expense) => setExpenses(prev => [expense, ...prev]);
 
-  const addLead = (newLead: Lead) => {
-    const existing = leads.find(l => l.phone_number === newLead.phone_number);
-    if (existing) {
-      alert("Lead already exists.");
-      return;
-    }
-    setLeads(prev => [newLead, ...prev]);
-  };
-
-  if (!initialized) return <div className="flex items-center justify-center h-screen bg-white font-bold text-slate-400 uppercase tracking-widest">Initializing CRM...</div>;
+  if (!initialized) return <div className="flex items-center justify-center h-screen bg-white text-slate-300 font-bold uppercase tracking-[0.2em]">Initializing Energy CRM...</div>;
 
   if (!currentUser) return <Auth onLogin={handleLogin} />;
 
@@ -186,10 +173,10 @@ export default function App() {
             <Route path="/" element={<Dashboard leads={leads} user={currentUser} />} />
             <Route path="/leads" element={<Leads leads={leads} onUpdateLead={updateLead} onAddLead={addLead} user={currentUser} users={MOCK_USERS} />} />
             <Route path="/pipeline" element={<Pipeline leads={leads} onUpdateLead={updateLead} />} />
-            <Route path="/sales" element={<Sales user={currentUser} />} />
-            <Route path="/accounts" element={<Accounts user={currentUser} />} />
-            <Route path="/team" element={(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SALES_MANAGER) ? <Team user={currentUser} /> : <Navigate to="/" />} />
-            <Route path="/profile" element={<Profile user={currentUser} />} />
+            <Route path="/sales" element={<Sales user={currentUser} quotes={quotes} invoices={invoices} onAddQuote={addQuote} />} />
+            <Route path="/accounts" element={<Accounts user={currentUser} expenses={expenses} onAddExpense={addExpense} />} />
+            <Route path="/team" element={(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SALES_MANAGER) ? <Team user={currentUser} leaves={leaves} onUpdateLeave={updateLeaveStatus} /> : <Navigate to="/" />} />
+            <Route path="/profile" element={<Profile user={currentUser} tasks={tasks} leaves={leaves} onAddTask={addTask} onAddLeave={addLeave} />} />
             <Route path="/reports" element={<Reports leads={leads} />} />
             <Route path="/settings" element={currentUser.role === UserRole.ADMIN ? <SettingsPage /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" />} />
